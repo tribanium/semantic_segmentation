@@ -211,6 +211,12 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--train", help="Runs the training loop", action="store_true")
+    parser.add_argument(
+        "--infer", help="Infers results on the test set", action="store_true"
+    )
+    parser.add_argument(
+        "--curves", help="Plots the learning curves", action="store_true"
+    )
     args = parser.parse_args()
 
     model = Model()
@@ -218,8 +224,11 @@ if __name__ == "__main__":
     if args.train:
         model.train()
 
-    else:
+    elif args.infer:
         model.load_model()
-        # model.load_loss_pkl()
-        # model.plot_curves()
         model.infer_data()
+
+    elif args.curves:
+        model.load_loss_pkl()
+        print(min(model.test_loss))
+        model.plot_curves()
