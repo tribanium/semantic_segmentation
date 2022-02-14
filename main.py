@@ -52,7 +52,7 @@ class TGSDataset(Dataset):
 class Model:
     def __init__(self):
         self.num_epochs = 50
-        self.batch_size = 128
+        self.batch_size = 32
 
         self.input_size = (128, 128)
 
