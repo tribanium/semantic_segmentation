@@ -173,7 +173,7 @@ class Model:
                 avg_test_loss = np.mean(test_loss_epoch)
                 print(f"Average test loss\t:\t{avg_test_loss}\n")
                 self.test_loss.append(avg_test_loss)
-                # Saving the model ans resetting the eraly stopping counter is there is a test loss improvement
+                # Saving the model ans resetting the early stopping counter if there is a test loss improvement
                 if avg_test_loss < best_loss:
                     best_loss = avg_test_loss
                     print("***\tSaving best model on average test loss\t***\n")
