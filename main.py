@@ -21,6 +21,14 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class TGSDataset(Dataset):
+    """
+    Loads the dataset contained in images/ and masks/ folders
+    Resizes images and masks from 101x101 to 128x128 so that the size matches the network's.
+    Apply torch transforms passed as inputs
+
+    __getitem__ returns a tuple containing the input image and its mask.
+    """
+
     def __init__(self, img_path, mask_path, transform=None):
         self.img_path = img_path
         self.mask_path = mask_path
@@ -50,29 +58,36 @@ class TGSDataset(Dataset):
 
 class Model:
     def __init__(self):
+        # Training parameters
         self.num_epochs = 50
         self.batch_size = 32
+        self.learning_rate = 1e-3
 
-        self.input_size = (128, 128)
+        # Stops the training if there's no improvement of test loss after this number of epochs
+        self.early_stopping_epochs = 10
 
+        # Instanciating the model, optimizer and loss
         self.net = UNet().to(device)
-        self.optimizer = optim.Adam(self.net.parameters())
-        self.loss = nn.BCELoss()
+        self.optimizer = optim.Adam(self.net.parameters())  # Default lr=1e-3
+        self.loss = nn.BCELoss()  # Binary cross-entropy
 
+        # Learning rate decay
         self.isSchedule = False
         if self.isSchedule:
             self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
                 self.optimizer, "min"
             )
 
-        transform = transforms.Compose([transforms.ToTensor()])
-
-        self.dataset = TGSDataset(img_dir, masks_dir, transform=transform)
-
+        # Allows to save the loss of train and test set during training
         self.train_loss = []
         self.test_loss = []
         self.save_loss = True
 
+        # Creating the dataset from images folders
+        transform = transforms.Compose([transforms.ToTensor()])
+        self.dataset = TGSDataset(img_dir, masks_dir, transform=transform)
+
+        # Splitting the 4000 items dataset into a train and test set with 80/20 ratio
         test_split = 0.2
         shuffle_dataset = True
         random_seed = 42
@@ -83,10 +98,10 @@ class Model:
         if shuffle_dataset:
             np.random.seed(random_seed)
             np.random.shuffle(indices)
-        train_indices, val_indices = indices[split:], indices[:split]
+        train_indices, test_indices = indices[split:], indices[:split]
 
         train_sampler = torch.utils.data.sampler.SubsetRandomSampler(train_indices)
-        test_sampler = torch.utils.data.sampler.SubsetRandomSampler(val_indices)
+        test_sampler = torch.utils.data.sampler.SubsetRandomSampler(test_indices)
 
         self.train_dataloader = DataLoader(
             self.dataset, batch_size=self.batch_size, sampler=train_sampler
@@ -97,19 +112,33 @@ class Model:
         )
 
     def train(self):
+        """
+        Training loop.
+        """
+
         print("Training model...\n")
         best_loss = 1e99
+        early_stopping_counter = 0
+
         for epoch in range(self.num_epochs):
+            # Early stopping
+            if early_stopping_counter == self.early_stopping_epochs:
+                break
+
             print(15 * "=" + f" Epoch {epoch+1}/{self.num_epochs} " + 15 * "=")
+
+            # Contains the loss for each batch during and epoch
             train_loss_epoch = []
             test_loss_epoch = []
 
             for _, (img, mask) in enumerate(tqdm(self.train_dataloader)):
-
+                # Useful when training on GPU
                 img, mask = img.to(device), mask.to(device)
 
+                # Zero the gradients
                 self.optimizer.zero_grad()
 
+                # Forward pass and backpropagation
                 y_pred = self.net(img)
                 loss = self.loss(y_pred, mask)
                 loss.backward()
@@ -121,6 +150,7 @@ class Model:
             print(f"Average train loss\t:\t{avg_train_loss}")
             self.train_loss.append(avg_train_loss)
 
+            # Don't take the forward pass into account here
             with torch.no_grad():
                 for _, (img, mask) in enumerate(self.test_dataloader):
                     img, mask = img.to(device), mask.to(device)
@@ -135,20 +165,36 @@ class Model:
                 avg_test_loss = np.mean(test_loss_epoch)
                 print(f"Average test loss\t:\t{avg_test_loss}\n")
                 self.test_loss.append(avg_test_loss)
+                # Saving the model ans resetting the eraly stopping counter is there is a test loss improvement
                 if avg_test_loss < best_loss:
                     best_loss = avg_test_loss
                     print("***\tSaving best model on average test loss\t***\n")
                     torch.save(self.net.state_dict(), "./model.pt")
+                    early_stopping_counter = 0
+                else:
+                    early_stopping_counter += 1
 
+        # Saving the train and test loss to plot learning curves later
         if self.save_loss:
             self.save_loss_pkl()
 
     def load_model(self):
+        """
+        Loads a trained model.
+        """
         self.net.load_state_dict(
             torch.load("./model.pt", map_location=torch.device("cpu"))
         )
 
-    def infer_data(self):
+    def infer_data(self, threshold=0.5):
+        """
+        Plots a 6x4 grid containing 6 test samples with :
+        - the input
+        - the ground truth mask
+        - the prediction
+        - the binary prediction with a given threshold (default = 0.5)
+        """
+
         f, axarr = plt.subplots(6, 4)
         with torch.no_grad():
             for k in range(0, 6):
@@ -157,7 +203,7 @@ class Model:
                 img = img_batch.numpy().squeeze(axis=(0, 1))
                 mask = mask_batch.numpy().squeeze(axis=(0, 1))
                 pred = pred.numpy().squeeze(axis=(0, 1))
-                pred_bin = pred > 0.5
+                pred_bin = pred > threshold
                 axarr[k, 0].imshow(img)
                 axarr[k, 1].imshow(mask)
                 axarr[k, 2].imshow(pred)
@@ -186,6 +232,10 @@ class Model:
         plt.show()
 
     def save_loss_pkl(self):
+        """
+        Saves the train_loss and test_loss lists as .pkl files
+        """
+
         print("Saving train and test loss...")
         with open("train_loss.pkl", "wb") as fp:
             pickle.dump(self.train_loss, fp)
@@ -194,6 +244,10 @@ class Model:
             pickle.dump(self.test_loss, fp)
 
     def load_loss_pkl(self):
+        """
+        Loads the train_loss and test_loss lists from .pkl files
+        """
+
         with open("train_loss.pkl", "rb") as fp:
             self.train_loss = pickle.load(fp)
 
@@ -201,6 +255,10 @@ class Model:
             self.test_loss = pickle.load(fp)
 
     def plot_curves(self):
+        """
+        Plots the learning curves.
+        """
+
         x = [i for i in range(1, self.num_epochs + 1)]
         plt.plot(x, self.train_loss, label="Train")
         plt.plot(x, self.test_loss, label="Test", color="red")
