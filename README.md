@@ -35,4 +35,6 @@ We chose to keep the model (`model.pt`) with the lowest loss on the test set : h
 ![](img/curves.png)
 
 ### Inference of test samples
+We chose a `threshold = 0.5` when binarizing the predictions :
+
 ![](img/inference.png)
