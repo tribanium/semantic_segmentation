@@ -68,7 +68,9 @@ class Model:
 
         # Instanciating the model, optimizer and loss
         self.net = UNet().to(device)
-        self.optimizer = optim.Adam(self.net.parameters())  # Default lr=1e-3
+        self.optimizer = optim.Adam(
+            params=self.net.parameters(), lr=self.learning_rate
+        )  # Default lr=1e-3
         self.loss = nn.BCELoss()  # Binary cross-entropy
 
         # Learning rate decay
@@ -116,7 +118,10 @@ class Model:
         Training loop.
         """
 
-        print("Training model...\n")
+        print("\nTraining model...\n")
+        print(
+            f"learning rate = {self.learning_rate}\tbatch size = {self.batch_size}\t early stopping : {self.early_stopping_epochs} epochs\n"
+        )
         best_loss = 1e99
         early_stopping_counter = 0
 
@@ -124,7 +129,7 @@ class Model:
             # Early stopping
             if early_stopping_counter == self.early_stopping_epochs:
                 print(
-                    f"###\tNo improvement of test loss since {self.early_stopping_epochs} epochs. Stopping the training\t###"
+                    f"#####\tNo improvement of test loss since {self.early_stopping_epochs} epochs. Stopping the training\t#####"
                 )
                 break
 
@@ -180,6 +185,8 @@ class Model:
         # Saving the train and test loss to plot learning curves later
         if self.save_loss:
             self.save_loss_pkl()
+
+        print("\nDone !\n")
 
     def load_model(self):
         """
