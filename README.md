@@ -30,7 +30,7 @@ python main.py --curves
 
 ## Results
 ### Learning curves
-We chose to keep the model (`model.pt`) with the lowest loss on the test set : here obtained at epocch 32, with `test_loss = 0.1784`.
+We chose to keep the model (`model.pt`) with the lowest loss on the test set : here obtained at epoch 32, with `test_loss = 0.1784`.
 
 ![](img/curves.png)
 

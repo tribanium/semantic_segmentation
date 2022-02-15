@@ -230,5 +230,5 @@ if __name__ == "__main__":
 
     elif args.curves:
         model.load_loss_pkl()
-        print(min(model.test_loss))
+        print(f"Min test loss : {min(model.test_loss)}")
         model.plot_curves()
