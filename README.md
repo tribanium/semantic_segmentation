@@ -1,5 +1,5 @@
 # Semantic segmentation
-The goal of this lab is to train a (UNet model)[https://arxiv.org/pdf/1505.04597.pdf] with an autoencoder structure to segment images obtained by seismic reflection and to detect the presence of salt or sediments in the sea bed.
+The goal of this lab is to train a [UNet model](https://arxiv.org/pdf/1505.04597.pdf) with an autoencoder structure to segment images obtained by seismic reflection and to detect the presence of salt or sediments in the sea bed.
 
 
 
