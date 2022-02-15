@@ -149,7 +149,7 @@ class Model:
         )
 
     def infer_data(self):
-        f, axarr = plt.subplots(6, 3)
+        f, axarr = plt.subplots(6, 4)
         with torch.no_grad():
             for k in range(0, 6):
                 _, (img_batch, mask_batch) = next(enumerate(self.test_dataloader))
@@ -157,15 +157,19 @@ class Model:
                 img = img_batch.numpy().squeeze(axis=(0, 1))
                 mask = mask_batch.numpy().squeeze(axis=(0, 1))
                 pred = pred.numpy().squeeze(axis=(0, 1))
+                pred_bin = pred > 0.5
                 axarr[k, 0].imshow(img)
                 axarr[k, 1].imshow(mask)
                 axarr[k, 2].imshow(pred)
+                axarr[k, 3].imshow(pred_bin)
                 axarr[k, 0].set_axis_off()
                 axarr[k, 1].set_axis_off()
                 axarr[k, 2].set_axis_off()
+                axarr[k, 3].set_axis_off()
             axarr[0, 0].set_title("Input")
             axarr[0, 1].set_title("Ground truth")
             axarr[0, 2].set_title("Pred")
+            axarr[0, 3].set_title("Pred binary")
             plt.show()
 
     def plot_sample(self):
