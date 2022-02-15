@@ -13,11 +13,15 @@ To train the model :
 ```
 python main.py --train
 ```
+or to train it with the UNetNoPool (where max pooling layers where removed and convolutions have `stride=2` and `padding=1`) :
+```
+python main.py --train_no_pool
+```
 
-Once the UNet is trained, the file `model.pt` contains the trained model with the lowest loss obtained on the test set.
+Once the UNet is trained, the file `model.pt` contains the trained model with the lowest loss obtained on the test set. The `train_loss` and `test_loss` are also stored as `.pkl` files.
 
 
-As the model was already trained (`batch_size = 32`, `num_epochs = 50`), you can infer a sample of test images with :
+You can infer a sample of test images with :
 
 ```
 python main.py --infer
@@ -26,6 +30,15 @@ python main.py --infer
 The files `train_loss.pkl` and `test_loss.pkl` allow you to plot the learning curves with
 ```
 python main.py --curves
+```
+
+Assuming your `model.pt` or `.pkl` files are stored into `./example/` directory, you can type :
+```
+python main.py --curves --dir example
+```
+or
+```
+python main.py --infer --dir example
 ```
 
 ## Results

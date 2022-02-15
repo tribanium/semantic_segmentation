@@ -109,7 +109,7 @@ class Model:
 
             print(15 * "=" + f" Epoch {epoch+1}/{self.num_epochs} " + 15 * "=")
 
-            # Contains the loss for each batch during and epoch
+            # Contains the loss for each batch during an epoch
             train_loss_epoch = []
             test_loss_epoch = []
 
@@ -167,12 +167,13 @@ class Model:
 
         print("\nDone !\n")
 
-    def load_model(self):
+    def load_model(self, dir="."):
         """
         Loads a trained model.
         """
+        model_path = f"{dir}/model.pt"
         self.net.load_state_dict(
-            torch.load("./model.pt", map_location=torch.device("cpu"))
+            torch.load(model_path, map_location=torch.device("cpu"))
         )
 
     def infer_data(self, threshold=0.5):
@@ -272,7 +273,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--train", help="Runs the training loop", action="store_true")
     parser.add_argument(
-        "--nopool", help="Uses the Unet without pooling layers", action="store_true"
+        "--train_no_pool",
+        help="Trains the Unet without pooling layers. Use it with --train flag",
+        action="store_true",
     )
     parser.add_argument(
         "--infer", help="Infers results on the test set", action="store_true"
@@ -280,21 +283,28 @@ if __name__ == "__main__":
     parser.add_argument(
         "--curves", help="Plots the learning curves", action="store_true"
     )
+    parser.add_argument(
+        "--dir",
+        help="Durectory in which the model and the pkl files are stored",
+        default=".",
+    )
     args = parser.parse_args()
 
-    no_pool = False
-    if args.nopool:
-        no_pool = True
-
-    model = Model(no_pool)
-
-    if args.train:
+    if args.train_no_pool:
+        # Trains the model without maxpooling layers
+        model = Model(no_pool=True)
         model.train()
 
-    elif args.infer:
-        model.load_model()
-        model.infer_data()
+    else:
+        model = Model()
 
-    elif args.curves:
-        model.load_loss_pkl()
-        model.plot_curves()
+        if args.train:
+            model.train()
+
+        elif args.infer:
+            model.load_model(dir=args.dir)
+            model.infer_data()
+
+        elif args.curves:
+            model.load_loss_pkl(dir=args.dir)
+            model.plot_curves()
