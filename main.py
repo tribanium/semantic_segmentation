@@ -13,6 +13,7 @@ import pickle
 import argparse
 
 from unet import UNet
+from unet_no_pool import UNetNoPool
 
 img_dir = "./data/train/images/"
 masks_dir = "./data/train/masks/"
@@ -57,9 +58,9 @@ class TGSDataset(Dataset):
 
 
 class Model:
-    def __init__(self):
+    def __init__(self, no_pool=False):
         # Training parameters
-        self.num_epochs = 50
+        self.num_epochs = 100
         self.batch_size = 32
         self.learning_rate = 1e-3
 
@@ -67,17 +68,21 @@ class Model:
         self.early_stopping_epochs = 10
 
         # Instanciating the model, optimizer and loss
-        self.net = UNet().to(device)
+        if no_pool:
+            self.net = UNetNoPool().to(device)
+        else:
+            self.net = UNet().to(device)
+
         self.optimizer = optim.Adam(
             params=self.net.parameters(), lr=self.learning_rate
         )  # Default lr=1e-3
         self.loss = nn.BCELoss()  # Binary cross-entropy
 
         # Learning rate decay
-        self.isSchedule = False
+        self.isSchedule = True
         if self.isSchedule:
             self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-                self.optimizer, "min"
+                optimizer=self.optimizer, mode="min", patience=5, factor=0.1
             )
 
         # Allows to save the loss of train and test set during training
@@ -118,10 +123,15 @@ class Model:
         Training loop.
         """
 
-        print("\nTraining model...\n")
+        print(f"\nTraining model : {self.net.__class__.__name__}...\n")
         print(
             f"learning rate = {self.learning_rate}\tbatch size = {self.batch_size}\t early stopping : {self.early_stopping_epochs} epochs\n"
         )
+        if self.isSchedule:
+            print("LR scheduler is on.\n")
+        else:
+            print("LR scheduler is off.\n")
+
         best_loss = 1e99
         early_stopping_counter = 0
 
@@ -129,7 +139,7 @@ class Model:
             # Early stopping
             if early_stopping_counter == self.early_stopping_epochs:
                 print(
-                    f"#####\tNo improvement of test loss since {self.early_stopping_epochs} epochs. Stopping the training\t#####"
+                    f"#####\tNo improvement of test loss since {self.early_stopping_epochs} epochs. Stopping the training.\t#####"
                 )
                 break
 
@@ -173,14 +183,19 @@ class Model:
                 avg_test_loss = np.mean(test_loss_epoch)
                 print(f"Average test loss\t:\t{avg_test_loss}\n")
                 self.test_loss.append(avg_test_loss)
-                # Saving the model ans resetting the early stopping counter if there is a test loss improvement
+                # Saving the model and resetting the early stopping counter if there is a test loss improvement
                 if avg_test_loss < best_loss:
                     best_loss = avg_test_loss
-                    print("***\tSaving best model on average test loss\t***\n")
+                    print("*****\tSaving best model on average test loss\t*****\n")
                     torch.save(self.net.state_dict(), "./model.pt")
                     early_stopping_counter = 0
                 else:
                     early_stopping_counter += 1
+                    print(
+                        f"#####\t{early_stopping_counter} epochs since no improvement\t#####\n"
+                    )
+            if self.isSchedule:
+                self.scheduler.step(avg_test_loss)
 
         # Saving the train and test loss to plot learning curves later
         if self.save_loss:
@@ -253,28 +268,38 @@ class Model:
         with open("test_loss.pkl", "wb") as fp:
             pickle.dump(self.test_loss, fp)
 
-    def load_loss_pkl(self):
+    def load_loss_pkl(self, dir="."):
         """
         Loads the train_loss and test_loss lists from .pkl files
         """
+        train_path = f"{dir}/train_loss.pkl"
+        test_path = f"{dir}/test_loss.pkl"
 
-        with open("train_loss.pkl", "rb") as fp:
+        with open(train_path, "rb") as fp:
             self.train_loss = pickle.load(fp)
 
-        with open("test_loss.pkl", "rb") as fp:
+        with open(test_path, "rb") as fp:
             self.test_loss = pickle.load(fp)
 
     def plot_curves(self):
         """
         Plots the learning curves.
         """
-
-        x = [i for i in range(1, self.num_epochs + 1)]
-        plt.plot(x, self.train_loss, label="Train")
-        plt.plot(x, self.test_loss, label="Test", color="red")
+        index_min = np.argmin(self.test_loss) + 1
+        min_loss = min(self.test_loss)
+        print(f"Min test loss : {min_loss}")
+        x = [i for i in range(1, len(self.train_loss) + 1)]
+        plt.plot(x, self.train_loss, label="train")
+        plt.plot(x, self.test_loss, label="test", color="red")
+        plt.axvline(
+            x=index_min,
+            color="black",
+            ls="--",
+            label=f"min test : {'{:.4f}'.format(min_loss)}",
+        )
         plt.xlabel("Epochs")
         plt.ylabel("Binary Cross-Entropy")
-        plt.legend()
+        plt.legend(loc="upper right", framealpha=1.0, prop={"size": 9})
         plt.show()
 
 
@@ -283,6 +308,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--train", help="Runs the training loop", action="store_true")
     parser.add_argument(
+        "--nopool", help="Uses the Unet without pooling layers", action="store_true"
+    )
+    parser.add_argument(
         "--infer", help="Infers results on the test set", action="store_true"
     )
     parser.add_argument(
@@ -290,7 +318,11 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    model = Model()
+    no_pool = False
+    if args.nopool:
+        no_pool = True
+
+    model = Model(no_pool)
 
     if args.train:
         model.train()
@@ -301,5 +333,4 @@ if __name__ == "__main__":
 
     elif args.curves:
         model.load_loss_pkl()
-        print(f"Min test loss : {min(model.test_loss)}")
         model.plot_curves()
