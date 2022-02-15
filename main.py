@@ -123,6 +123,9 @@ class Model:
         for epoch in range(self.num_epochs):
             # Early stopping
             if early_stopping_counter == self.early_stopping_epochs:
+                print(
+                    f"###\tNo improvement of test loss since {self.early_stopping_epochs} epochs. Stopping the training\t###"
+                )
                 break
 
             print(15 * "=" + f" Epoch {epoch+1}/{self.num_epochs} " + 15 * "=")
