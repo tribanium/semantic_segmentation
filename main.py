@@ -11,6 +11,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pickle
 import argparse
+import os
+from glob import glob
 
 from unet import UNet
 from unet_no_pool import UNetNoPool
@@ -274,6 +276,7 @@ class Model:
         plt.show()
 
     def compute_roc(self):
+        """Computes true positives rate and false positives rate for different thresholds and stores the results in a dict then saves it into a .pkl file"""
         length_images = 128 * 128
         # false positive rate
         fpr = []
@@ -298,16 +301,22 @@ class Model:
             pickle.dump(dico, fp)
 
     def plot_ROC(self):
-        with open("roc.pkl", "rb") as fp:
-            dico = pickle.load(fp)
+        """Plots the ROC curve. Checks if the pkl files exists first. If not, it computes it."""
+        is_roc = [y for x in os.walk("./") for y in glob(os.path.join(x[0], "roc.pkl"))]
+        if is_roc:
+            with open(is_roc[0], "rb") as fp:
+                dico = pickle.load(fp)
 
-        fpr = dico["fpr"]
-        tpr = dico["tpr"]
-        plt.plot(fpr, tpr, "x-", ms=4)
-        plt.plot(fpr, fpr, "k--")
-        plt.xlabel("False positives")
-        plt.ylabel("True positives")
-        plt.show()
+            fpr = dico["fpr"]
+            tpr = dico["tpr"]
+            plt.plot(fpr, tpr, "x-", ms=4)
+            plt.plot(fpr, fpr, "k--")
+            plt.xlabel("False positives")
+            plt.ylabel("True positives")
+            plt.title("ROC curve")
+            plt.show()
+        else:
+            self.compute_roc()
 
 
 if __name__ == "__main__":
@@ -328,7 +337,7 @@ if __name__ == "__main__":
     parser.add_argument("--roc", help="Plots the roc", action="store_true")
     parser.add_argument(
         "--dir",
-        help="Durectory in which the model and the pkl files are stored",
+        help="Directory in which the model and the pkl files are stored",
         default=".",
     )
     args = parser.parse_args()

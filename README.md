@@ -18,6 +18,8 @@ or to train it with the UNetNoPool (where max pooling layers where removed and c
 python main.py --train_no_pool
 ```
 
+
+## Visualize the results
 Once the UNet is trained, the file `model.pt` contains the trained model with the lowest loss obtained on the test set. The `train_loss` and `test_loss` are also stored as `.pkl` files.
 
 
@@ -32,13 +34,21 @@ The files `train_loss.pkl` and `test_loss.pkl` allow you to plot the learning cu
 python main.py --curves
 ```
 
+You can also plot the ROC curve with :
+
+```
+python main.py --roc
+```
+**Note :** the `roc.pkl` file is not inside the root directory or a subfolder, it will be computed (it's a bit long !)
+
+
+
+
 Assuming your `model.pt` or `.pkl` files are stored into `./example/` directory, you can type :
 ```
 python main.py --curves --dir example
-```
-or
-```
 python main.py --infer --dir example
+python main.py --roc --dir example
 ```
 
 ## Results
@@ -51,3 +61,8 @@ We chose to keep the model (`model.pt`) with the lowest loss on the test set : h
 We chose a `threshold = 0.5` when binarizing the predictions :
 
 ![](img/inference.png)
+
+### Receiver Operating Characteristic (ROC) curve
+This curve show the TP rate VS FP rate. The rightmost point corresponds to a 0 threshold (everything is classified to 1) and increments 0.1 when going left.
+
+![](img/roc_curve.png)
