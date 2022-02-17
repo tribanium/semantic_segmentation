@@ -1,3 +1,4 @@
+from pickletools import uint8
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -46,7 +47,12 @@ class Model:
         self.isSchedule = True
         if self.isSchedule:
             self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-                optimizer=self.optimizer, mode="min", patience=5, factor=0.1
+                optimizer=self.optimizer,
+                mode="min",
+                patience=5,
+                factor=0.1,
+                min_lr=1e-5,
+                verbose=True,
             )
 
         # Allows to save the loss of train and test set during training
@@ -156,7 +162,7 @@ class Model:
                 else:
                     early_stopping_counter += 1
                     print(
-                        f"#####\t{early_stopping_counter} epochs since no improvement\t#####\n"
+                        f"#####\t{early_stopping_counter} epochs since last improvement\t#####\n"
                     )
             if self.isSchedule:
                 self.scheduler.step(avg_test_loss)
@@ -267,6 +273,42 @@ class Model:
         plt.legend(loc="upper right", framealpha=1.0, prop={"size": 9})
         plt.show()
 
+    def compute_roc(self):
+        length_images = 128 * 128
+        # false positive rate
+        fpr = []
+        # true positive rate
+        tpr = []
+        # Iterate thresholds from 0.0, 0.01, ... 1.0
+        thresholds = np.arange(0.0, 1.1, 0.1)
+        with torch.no_grad():
+            for threshold in tqdm(thresholds):
+                FP = 0
+                TP = 0
+                for _, (img, mask) in enumerate(tqdm(self.test_dataloader)):
+                    pred = self.net(img).numpy().ravel() > threshold
+                    mask = mask.numpy().ravel() > 0.5
+                    TP += np.sum(pred & mask) / length_images
+                    FP += np.sum((pred == 1) & (mask == 0)) / length_images
+                fpr.append(FP / len(self.test_dataloader))
+                tpr.append(TP / len(self.test_dataloader))
+
+        dico = {"fpr": fpr, "tpr": tpr}
+        with open("roc.pkl", "wb") as fp:
+            pickle.dump(dico, fp)
+
+    def plot_ROC(self):
+        with open("roc.pkl", "rb") as fp:
+            dico = pickle.load(fp)
+
+        fpr = dico["fpr"]
+        tpr = dico["tpr"]
+        plt.plot(fpr, tpr, "x-", ms=4)
+        plt.plot(fpr, fpr, "k--")
+        plt.xlabel("False positives")
+        plt.ylabel("True positives")
+        plt.show()
+
 
 if __name__ == "__main__":
 
@@ -283,6 +325,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--curves", help="Plots the learning curves", action="store_true"
     )
+    parser.add_argument("--roc", help="Plots the roc", action="store_true")
     parser.add_argument(
         "--dir",
         help="Durectory in which the model and the pkl files are stored",
@@ -308,3 +351,7 @@ if __name__ == "__main__":
         elif args.curves:
             model.load_loss_pkl(dir=args.dir)
             model.plot_curves()
+
+        elif args.roc:
+            model.load_model(dir=args.dir)
+            model.plot_ROC()
