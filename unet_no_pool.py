@@ -1,3 +1,8 @@
+"""
+U-Net class without max pooling layers after the double convolution blocks.
+The blocks containing the double convolutions were changed to add a stride=2 and a padding to the second convolution.
+"""
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
